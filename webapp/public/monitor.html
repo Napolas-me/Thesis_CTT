@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor Centro de Separação - CTT</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .pulse-animation {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+        .countdown-urgent {
+            animation: blink 1s linear infinite;
+        }
+        .gate-selected {
+            border-color: #3B82F6 !important;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+        }
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <div class="container mx-auto px-6 py-8">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-8">
+            <div class="flex items-center space-x-4">
+                <div class="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
+                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-3xl font-bold text-white">Monitor Centro de Separação</h1>
+                    <p class="text-gray-400" id="centerName">Centro de Separação Lisboa</p>
+                </div>
+            </div>
+            <div class="text-right">
+                <div class="text-2xl font-bold text-white" id="currentTime"></div>
+                <div class="text-gray-400">Tempo Real</div>
+            </div>
+        </div>
+
+        <!-- Center Selection -->
+        <div class="mb-8">
+            <select id="centerSelect" class="bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-blue-500 focus:outline-none">
+                <option value="lisboa">Centro de Separação Lisboa</option>
+                <option value="porto">Centro de Separação Porto</option>
+            </select>
+        </div>
+
+        <!-- Gates Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="gatesGrid">
+            <!-- Gates will be populated by JavaScript -->
+        </div>
+
+        <!-- Selected Gate Details -->
+        <div class="mt-8 bg-gray-800 rounded-lg p-6" id="selectedGateDetails" style="display: none;">
+            <h3 class="text-xl font-bold text-white mb-4">Detalhes do Portão Selecionado</h3>
+            <div id="gateDetailsContent">
+                <!-- Gate details will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Statistics -->
+        <div class="mt-8 grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div class="bg-gray-800 rounded-lg p-6">
+                <div class="text-2xl font-bold text-blue-400" id="totalGates">6</div>
+                <div class="text-gray-400">Total Portões</div>
+            </div>
+            <div class="bg-gray-800 rounded-lg p-6">
+                <div class="text-2xl font-bold text-green-400" id="activeGates">3</div>
+                <div class="text-gray-400">Portões Ativos</div>
+            </div>
+            <div class="bg-gray-800 rounded-lg p-6">
+                <div class="text-2xl font-bold text-yellow-400" id="totalParcels">251</div>
+                <div class="text-gray-400">Total Encomendas</div>
+            </div>
+            <div class="bg-gray-800 rounded-lg p-6">
+                <div class="text-2xl font-bold text-purple-400" id="totalCapacity">370</div>
+                <div class="text-gray-400">Capacidade Total</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mock data for demonstration
+        const separationCenters = {
+            lisboa: {
+                name: "Centro de Separação Lisboa",
+                gates: [
+                    {
+                        id: 1,
+                        truck: {
+                            name: "Camião Norte",
+                            route: ["Lisboa", "Coimbra", "Porto", "Braga"],
+                            arrivalTime: new Date(Date.now() - 30 * 60 * 1000),
+                            departureTime: new Date(Date.now() + 45 * 60 * 1000),
+                            capacity: 150,
+                            currentLoad: 89
+                        },
+                        parcelsEntered: 89,
+                        parcelsToEnter: 23,
+                        status: "loading"
+                    },
+                    {
+                        id: 2,
+                        truck: {
+                            name: "Expresso Sul",
+                            route: ["Lisboa", "Setúbal", "Évora", "Beja", "Faro"],
+                            arrivalTime: new Date(Date.now() - 15 * 60 * 1000),
+                            departureTime: new Date(Date.now() + 25 * 60 * 1000),
+                            capacity: 120,
+                            currentLoad: 67
+                        },
+                        parcelsEntered: 67,
+                        parcelsToEnter: 15,
+                        status: "loading"
+                    },
+                    {
+                        id: 3,
+                        truck: {
+                            name: "Rota Centro",
+                            route: ["Lisboa", "Santarém", "Leiria", "Coimbra", "Viseu"],
+                            arrivalTime: new Date(Date.now() - 45 * 60 * 1000),
+                            departureTime: new Date(Date.now() + 15 * 60 * 1000),
+                            capacity: 100,
+                            currentLoad: 95
+                        },
+                        parcelsEntered: 95,
+                        parcelsToEnter: 5,
+                        status: "ready"
+                    },
+                    { id: 4, status: "empty", parcelsEntered: 0, parcelsToEnter: 0 },
+                    { id: 5, status: "empty", parcelsEntered: 0, parcelsToEnter: 0 },
+                    { id: 6, status: "empty", parcelsEntered: 0, parcelsToEnter: 0 }
+                ]
+            },
+            porto: {
+                name: "Centro de Separação Porto",
+                gates: [
+                    {
+                        id: 1,
+                        truck: {
+                            name: "Porto Express",
+                            route: ["Porto", "Braga", "Viana do Castelo"],
+                            arrivalTime: new Date(Date.now() - 20 * 60 * 1000),
+                            departureTime: new Date(Date.now() + 35 * 60 * 1000),
+                            capacity: 80,
+                            currentLoad: 45
+                        },
+                        parcelsEntered: 45,
+                        parcelsToEnter: 12,
+                        status: "loading"
+                    },
+                    {
+                        id: 2,
+                        truck: {
+                            name: "Rota Interior",
+                            route: ["Porto", "Vila Real", "Bragança"],
+                            arrivalTime: new Date(Date.now() - 10 * 60 * 1000),
+                            departureTime: new Date(Date.now() + 50 * 60 * 1000),
+                            capacity: 60,
+                            currentLoad: 38
+                        },
+                        parcelsEntered: 38,
+                        parcelsToEnter: 8,
+                        status: "loading"
+                    },
+                    { id: 3, status: "empty", parcelsEntered: 0, parcelsToEnter: 0 },
+                    { id: 4, status: "empty", parcelsEntered: 0, parcelsToEnter: 0 }
+                ]
+            }
+        };
+
+        let currentCenter = 'lisboa';
+        let selectedGateId = null;
+
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('currentTime').textContent = now.toLocaleTimeString('pt-PT');
+        }
+
+        function formatTimeUntilDeparture(departureTime) {
+            const now = new Date();
+            const diff = departureTime.getTime() - now.getTime();
+            
+            if (diff <= 0) return 'PARTIU';
+            
+            const minutes = Math.floor(diff / (1000 * 60));
+            const hours = Math.floor(minutes / 60);
+            const remainingMinutes = minutes % 60;
+            
+            if (hours > 0) {
+                return `${hours}h ${remainingMinutes}m`;
+            }
+            return `${remainingMinutes}m`;
+        }
+
+        function getStatusColor(status) {
+            switch (status) {
+                case 'loading': return 'border-blue-500 bg-blue-900/20';
+                case 'ready': return 'border-green-500 bg-green-900/20';
+                case 'departed': return 'border-gray-500 bg-gray-900/20';
+                case 'empty': return 'border-yellow-500 bg-yellow-900/20';
+                default: return 'border-gray-500 bg-gray-900/20';
+            }
+        }
+
+        function getCapacityColor(currentLoad, capacity) {
+            const percentage = (currentLoad / capacity) * 100;
+            if (percentage >= 90) return 'bg-red-500';
+            if (percentage >= 75) return 'bg-yellow-500';
+            return 'bg-green-500';
+        }
+
+        function selectGate(gateId) {
+            selectedGateId = gateId;
+            renderGates();
+            showGateDetails(gateId);
+        }
+
+        function showGateDetails(gateId) {
+            const center = separationCenters[currentCenter];
+            const gate = center.gates.find(g => g.id === gateId);
+            const detailsContainer = document.getElementById('selectedGateDetails');
+            const contentContainer = document.getElementById('gateDetailsContent');
+            
+            if (!gate) {
+                detailsContainer.style.display = 'none';
+                return;
+            }
+            
+            detailsContainer.style.display = 'block';
+            
+            if (gate.truck) {
+                const timeUntilDeparture = formatTimeUntilDeparture(gate.truck.departureTime);
+                const capacityPercentage = (gate.truck.currentLoad / gate.truck.capacity) * 100;
+                const freeSpace = gate.truck.capacity - gate.truck.currentLoad;
+                
+                contentContainer.innerHTML = `
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div class="bg-gray-700 rounded-lg p-4">
+                            <h4 class="text-lg font-semibold text-blue-400 mb-2">Informações do Portão</h4>
+                            <div class="space-y-2 text-sm">
+                                <div><span class="text-gray-400">Portão:</span> <span class="text-white font-medium">${gate.id}</span></div>
+                                <div><span class="text-gray-400">Status:</span> <span class="text-white font-medium">${gate.status.toUpperCase()}</span></div>
+                                <div><span class="text-gray-400">Centro:</span> <span class="text-white font-medium">${center.name}</span></div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-gray-700 rounded-lg p-4">
+                            <h4 class="text-lg font-semibold text-green-400 mb-2">Informações do Camião</h4>
+                            <div class="space-y-2 text-sm">
+                                <div><span class="text-gray-400">Nome:</span> <span class="text-white font-medium">${gate.truck.name}</span></div>
+                                <div><span class="text-gray-400">Chegada:</span> <span class="text-white font-medium">${gate.truck.arrivalTime.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}</span></div>
+                                <div><span class="text-gray-400">Partida:</span> <span class="text-white font-medium">${gate.truck.departureTime.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}</span></div>
+                                <div><span class="text-gray-400">Tempo até Partida:</span> <span class="text-yellow-400 font-bold">${timeUntilDeparture}</span></div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-gray-700 rounded-lg p-4">
+                            <h4 class="text-lg font-semibold text-purple-400 mb-2">Encomendas</h4>
+                            <div class="space-y-2 text-sm">
+                                <div><span class="text-gray-400">Entrada:</span> <span class="text-white font-bold text-lg">${gate.parcelsEntered}</span></div>
+                                <div><span class="text-gray-400">Por Entrar:</span> <span class="text-white font-bold text-lg">${gate.parcelsToEnter}</span></div>
+                                <div><span class="text-gray-400">Total Previsto:</span> <span class="text-white font-medium">${gate.parcelsEntered + gate.parcelsToEnter}</span></div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-gray-700 rounded-lg p-4">
+                            <h4 class="text-lg font-semibold text-orange-400 mb-2">Capacidade</h4>
+                            <div class="space-y-3">
+                                <div class="text-sm">
+                                    <div class="flex justify-between mb-1">
+                                        <span class="text-gray-400">Ocupação</span>
+                                        <span class="text-white font-medium">${Math.round(capacityPercentage)}%</span>
+                                    </div>
+                                    <div class="w-full bg-gray-600 rounded-full h-3">
+                                        <div class="h-3 rounded-full ${getCapacityColor(gate.truck.currentLoad, gate.truck.capacity)}" 
+                                             style="width: ${capacityPercentage}%"></div>
+                                    </div>
+                                </div>
+                                <div class="text-sm">
+                                    <div><span class="text-gray-400">Atual:</span> <span class="text-white font-bold">${gate.truck.currentLoad}</span></div>
+                                    <div><span class="text-gray-400">Capacidade:</span> <span class="text-white font-bold">${gate.truck.capacity}</span></div>
+                                    <div><span class="text-gray-400">Espaço Livre:</span> <span class="text-white font-bold">${freeSpace}</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 bg-gray-700 rounded-lg p-4">
+                        <h4 class="text-lg font-semibold text-cyan-400 mb-3">Rota do Camião</h4>
+                        <div class="flex flex-wrap gap-2">
+                            ${gate.truck.route.map((city, index) => `
+                                <span class="px-3 py-1 bg-gray-600 text-white rounded-full text-sm">
+                                    ${index + 1}. ${city}
+                                </span>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            } else {
+                contentContainer.innerHTML = `
+                    <div class="text-center py-8">
+                        <div class="w-16 h-16 mx-auto mb-4 bg-gray-700 rounded-full flex items-center justify-center">
+                            <svg class="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                            </svg>
+                        </div>
+                        <h4 class="text-lg font-semibold text-white mb-2">Portão ${gate.id} - Vazio</h4>
+                        <p class="text-gray-400">Este portão não tem camião atribuído no momento.</p>
+                        <div class="mt-4 text-sm text-gray-500">
+                            <div>Centro: ${center.name}</div>
+                            <div>Status: ${gate.status.toUpperCase()}</div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        function renderGates() {
+            const center = separationCenters[currentCenter];
+            const gatesGrid = document.getElementById('gatesGrid');
+            
+            gatesGrid.innerHTML = center.gates.map(gate => {
+                if (gate.truck) {
+                    const timeUntilDeparture = formatTimeUntilDeparture(gate.truck.departureTime);
+                    const isUrgent = timeUntilDeparture !== 'PARTIU' && parseInt(timeUntilDeparture) <= 10;
+                    const capacityPercentage = (gate.truck.currentLoad / gate.truck.capacity) * 100;
+                    const isSelected = selectedGateId === gate.id;
+                    
+                    return `
+                        <div class="bg-gray-800 rounded-lg p-6 border-2 cursor-pointer transition-all hover:border-blue-400 ${getStatusColor(gate.status)} ${isSelected ? 'gate-selected' : ''}" 
+                             onclick="selectGate(${gate.id})">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-xl font-bold text-white">Portão ${gate.id}</h3>
+                                <span class="px-3 py-1 rounded-full text-sm font-medium ${
+                                    gate.status === 'loading' ? 'bg-blue-600 text-blue-100' :
+                                    gate.status === 'ready' ? 'bg-green-600 text-green-100' :
+                                    'bg-gray-600 text-gray-100'
+                                }">
+                                    ${gate.status.toUpperCase()}
+                                </span>
+                            </div>
+                            
+                            <div class="space-y-3">
+                                <div>
+                                    <div class="text-lg font-semibold text-blue-400">${gate.truck.name}</div>
+                                    <div class="text-sm text-gray-400">${gate.truck.route.join(' → ')}</div>
+                                </div>
+                                
+                                <div class="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <div class="text-gray-400">Chegada</div>
+                                        <div class="text-white font-medium">${gate.truck.arrivalTime.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-gray-400">Partida</div>
+                                        <div class="text-white font-medium">${gate.truck.departureTime.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="text-center">
+                                    <div class="text-gray-400 text-sm">Tempo até Partida</div>
+                                    <div class="text-2xl font-bold ${
+                                        timeUntilDeparture === 'PARTIU' ? 'text-red-400' :
+                                        isUrgent ? 'text-yellow-400 countdown-urgent' : 'text-green-400'
+                                    }">
+                                        ${timeUntilDeparture}
+                                    </div>
+                                </div>
+                                
+                                <div class="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <div class="text-gray-400">Entrada</div>
+                                        <div class="text-white font-bold text-lg">${gate.parcelsEntered}</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-gray-400">Por Entrar</div>
+                                        <div class="text-white font-bold text-lg">${gate.parcelsToEnter}</div>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <div class="flex items-center justify-between text-sm mb-2">
+                                        <span class="text-gray-400">Capacidade</span>
+                                        <span class="text-white font-medium">${gate.truck.currentLoad}/${gate.truck.capacity} (${Math.round(capacityPercentage)}%)</span>
+                                    </div>
+                                    <div class="w-full bg-gray-700 rounded-full h-3">
+                                        <div class="h-3 rounded-full transition-all duration-500 ${getCapacityColor(gate.truck.currentLoad, gate.truck.capacity)}" 
+                                             style="width: ${capacityPercentage}%"></div>
+                                    </div>
+                                </div>
+                                
+                                <div class="text-center">
+                                    <div class="text-gray-400 text-sm">Espaço Livre</div>
+                                    <div class="text-white font-bold text-lg">${gate.truck.capacity - gate.truck.currentLoad}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    const isSelected = selectedGateId === gate.id;
+                    return `
+                        <div class="bg-gray-800 rounded-lg p-6 border-2 cursor-pointer transition-all hover:border-blue-400 ${getStatusColor(gate.status)} ${isSelected ? 'gate-selected' : ''}" 
+                             onclick="selectGate(${gate.id})">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-xl font-bold text-white">Portão ${gate.id}</h3>
+                                <span class="px-3 py-1 rounded-full text-sm font-medium bg-yellow-600 text-yellow-100">
+                                    VAZIO
+                                </span>
+                            </div>
+                            
+                            <div class="text-center py-8">
+                                <div class="w-16 h-16 mx-auto mb-4 bg-gray-700 rounded-full flex items-center justify-center">
+                                    <svg class="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                                    </svg>
+                                </div>
+                                <div class="text-gray-400">Aguardando Camião</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }).join('');
+        }
+
+        function updateStatistics() {
+            const center = separationCenters[currentCenter];
+            const activeGates = center.gates.filter(g => g.truck).length;
+            const totalParcels = center.gates.reduce((sum, g) => sum + g.parcelsEntered, 0);
+            const totalCapacity = center.gates.reduce((sum, g) => sum + (g.truck ? g.truck.capacity : 0), 0);
+            
+            document.getElementById('totalGates').textContent = center.gates.length;
+            document.getElementById('activeGates').textContent = activeGates;
+            document.getElementById('totalParcels').textContent = totalParcels;
+            document.getElementById('totalCapacity').textContent = totalCapacity;
+        }
+
+        function switchCenter() {
+            const select = document.getElementById('centerSelect');
+            currentCenter = select.value;
+            selectedGateId = null; // Reset selection when switching centers
+            document.getElementById('centerName').textContent = separationCenters[currentCenter].name;
+            document.getElementById('selectedGateDetails').style.display = 'none';
+            renderGates();
+            updateStatistics();
+        }
+
+        // Initialize
+        document.getElementById('centerSelect').addEventListener('change', switchCenter);
+        
+        // Update time every second
+        setInterval(updateTime, 1000);
+        
+        // Update gates every 5 seconds (simulate real-time updates)
+        setInterval(() => {
+            renderGates();
+            if (selectedGateId) {
+                showGateDetails(selectedGateId);
+            }
+            updateStatistics();
+        }, 5000);
+        
+        // Initial render
+        updateTime();
+        renderGates();
+        updateStatistics();
+    </script>
+</body>
+</html>

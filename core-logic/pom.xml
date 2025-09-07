@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>isel.meic.thesis</groupId>
+        <artifactId>proto</artifactId>
+        <version>1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>core-logic</artifactId>
+    <packaging>jar</packaging>
+
+    <properties>
+        <!-- java.version is inherited from parent, but can be explicitly set here if different -->
+        <java.version>17</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+        <!-- MariaDB JDBC Driver - version is managed by parent's dependencyManagement -->
+        <dependency>
+            <groupId>org.mariadb.jdbc</groupId>
+            <artifactId>mariadb-java-client</artifactId>
+            <scope>runtime</scope> <!-- Or compile, depending on how directly your core-logic DAOs use it -->
+        </dependency>
+
+        <!-- Lombok - version is managed by parent's dependencyManagement -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Spring Context for @Component, @Service, @Repository annotations if used in core-logic -->
+        <!-- Version is managed by parent's dependencyManagement -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+        </dependency>
+        <!-- For @PostConstruct -->
+        <dependency>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
+        </dependency>
+
+        <!-- Add any other pure Java library dependencies your core-logic needs -->
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- maven-compiler-plugin version and config is managed by parent's pluginManagement -->
+            <!-- So you don't need to redefine it here unless you want to override something specific -->
+        </plugins>
+    </build>
+
+</project>
