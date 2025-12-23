@@ -8,8 +8,6 @@ import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
 import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp; // Importar Timestamp
 import java.time.LocalDate;
@@ -28,6 +26,10 @@ public class EntityDAO {
         this.jdbcTemplate = jdbcTemplate;
     }
 
+    /*public void setRoute(int entityId, int routeId){
+        String sql = "UPDATE UA SET selected_route_id = ? WHERE id = ?";
+    }*/
+
     // RowMapper para mapear ResultSet para EntityDTO
     private final RowMapper<EntityDTO> rowMapper = (rs, rowNum) -> {
         EntityDTO entity = new EntityDTO();
@@ -42,6 +44,7 @@ public class EntityDAO {
         entity.setMaxTransfers(rs.getInt("max_transfers")); // Mapeia o novo campo 'max_transfers'
         entity.setDeadline(rs.getTimestamp("deadline").toLocalDateTime()); // Mapeia 'deadline'
         entity.setStatus(rs.getString("status"));
+        entity.setRouteId(rs.getInt("selected_route_id"));
         return entity;
     };
 
@@ -51,6 +54,7 @@ public class EntityDAO {
      * @return O EntityDTO com o ID gerado pelo banco de dados.
      */
     public EntityDTO createEntity(EntityDTO entity) {
+        // ... (No changes needed here) ...
         String sql = "INSERT INTO UA (name, description, type, origin, destination, max_transfers, deadline, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         KeyHolder keyHolder = new GeneratedKeyHolder();
 
@@ -58,12 +62,12 @@ public class EntityDAO {
             PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
             ps.setString(1, entity.getName());
             ps.setString(2, entity.getDescription());
-            ps.setString(3, Objects.requireNonNullElse(entity.getType(), "NORMAL")); // Define 'NORMAL' como padrão se null
+            ps.setString(3, Objects.requireNonNullElse(entity.getType(), "NORMAL"));
             ps.setString(4, entity.getOrigin());
             ps.setString(5, entity.getDestination());
-            ps.setInt(6, Objects.requireNonNullElse(entity.getMaxTransfers(), 0)); // Define 0 como padrão se null
-            ps.setTimestamp(7, Timestamp.valueOf(entity.getDeadline())); // Usar Timestamp.valueOf
-            ps.setString(8, Objects.requireNonNullElse(entity.getStatus(), "created")); // Define 'created' como padrão se null
+            ps.setInt(6, Objects.requireNonNullElse(entity.getMaxTransfers(), 0));
+            ps.setTimestamp(7, Timestamp.valueOf(entity.getDeadline()));
+            ps.setString(8, Objects.requireNonNullElse(entity.getStatus(), "created"));
             return ps;
         }, keyHolder);
 
@@ -77,11 +81,11 @@ public class EntityDAO {
      * @return O EntityDTO correspondente, ou null se não for encontrado.
      */
     public EntityDTO findById(Integer id) {
-        String sql = "SELECT id, name, description, created_at, updated_at, type, origin, destination, max_transfers, deadline, status FROM UA WHERE id = ?";
+        String sql = "SELECT id, name, description, created_at, updated_at, type, origin, destination, max_transfers, deadline, status, selected_route_id FROM UA WHERE id = ?";
         try {
             return jdbcTemplate.queryForObject(sql, new Object[]{id}, rowMapper);
         } catch (org.springframework.dao.EmptyResultDataAccessException e) {
-            return null; // Retorna null se nenhum resultado for encontrado
+            return null;
         }
     }
 
@@ -90,7 +94,7 @@ public class EntityDAO {
      * @return Uma lista de EntityDTOs.
      */
     public List<EntityDTO> findAll() {
-        String sql = "SELECT id, name, description, created_at, updated_at, type, origin, destination, max_transfers, deadline, status FROM UA";
+        String sql = "SELECT id, name, description, created_at, updated_at, type, origin, destination, max_transfers, deadline, status, selected_route_id FROM UA";
         return jdbcTemplate.query(sql, rowMapper);
     }
 
@@ -100,7 +104,7 @@ public class EntityDAO {
      * @return Uma lista de EntityDTOs com o status especificado.
      */
     public List<EntityDTO> findByStatus(String status) {
-        String sql = "SELECT id, name, description, created_at, updated_at, type, origin, destination, max_transfers, deadline, status FROM UA WHERE status = ?";
+        String sql = "SELECT id, name, description, created_at, updated_at, type, origin, destination, max_transfers, deadline, status, selected_route_id FROM UA WHERE status = ?";
         return jdbcTemplate.query(sql, new Object[]{status}, rowMapper);
     }
 
@@ -111,16 +115,17 @@ public class EntityDAO {
      * @return O número de linhas afetadas (1 se atualizado com sucesso, 0 caso contrário).
      */
     public int updateEntity(EntityDTO entity) {
-        String sql = "UPDATE UA SET name = ?, description = ?, type = ?, origin = ?, destination = ?, max_transfers = ?, deadline = ?, status = ? WHERE id = ?";
+        String sql = "UPDATE UA SET name = ?, description = ?, type = ?, origin = ?, destination = ?, max_transfers = ?, deadline = ?, status = ?, selected_route_id = ? WHERE id = ?";
         return jdbcTemplate.update(sql,
                 entity.getName(),
                 entity.getDescription(),
-                entity.getType(), // Atualiza o novo campo 'type'
+                entity.getType(),
                 entity.getOrigin(),
                 entity.getDestination(),
-                entity.getMaxTransfers(), // Atualiza o novo campo 'max_transfers'
-                Timestamp.valueOf(entity.getDeadline()), // Usar Timestamp.valueOf
+                entity.getMaxTransfers(),
+                Timestamp.valueOf(entity.getDeadline()), //wrong type
                 entity.getStatus(),
+                entity.getRouteId(),
                 entity.getId());
     }
 

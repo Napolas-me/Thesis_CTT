@@ -1,5 +1,6 @@
 package isel.meic.thesis.proto.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data; // Requires Lombok dependency
 
 import java.time.LocalDateTime;
@@ -11,7 +12,9 @@ public class RouteDTO {
     private String name;
     private String routeStartName;
     private String routeEndName;
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime routeStartDate;
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime routeEndDate;
     private TransportDTO assignedTransport; // DTO for transport
     private String status;

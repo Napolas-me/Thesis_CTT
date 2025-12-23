@@ -56,6 +56,8 @@ public class Trip {
         return tempoChegado;
     }
 
+    public String getStatus(){return status;}
+
     @Override
     public String toString() {
         return "Viagem{" +

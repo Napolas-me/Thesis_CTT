@@ -1,20 +1,19 @@
 // Parcel Service - Handles all parcel-related API calls
-import { CorrespondenceType, Parcel, ParcelStatus } from '../types/parcel'; // Import ParcelStatus
+import { BackendRouteItem } from '../types/backendRouteItem';
+import { CorrespondenceType, Parcel, ParcelStatus } from '../types/parcel';
 import { apiService } from './api';
 
 // CreateParcelRequest should match the EntityDTO structure for creation
 export interface CreateParcelRequest {
-  name: string; // Matches EntityDTO
+  name: string;
   description: string;
   type: CorrespondenceType;
   origin: string;
   destination: string;
   maxTransfers: number;
-  deadline: string; // ISO string format for LocalDateTime
-  status: ParcelStatus; // Initial status, e.g., 'created'
+  deadline: string;
+  status: ParcelStatus;
 }
-
-// Removed UpdateParcelStatusRequest as we will send full Parcel object
 
 export interface ParcelSearchFilters {
   status?: string;
@@ -25,7 +24,7 @@ export interface ParcelSearchFilters {
   dateTo?: string;
 }
 
-// Interface for the backend's RouteDTO response from calculateOptimalRoute
+// Interface for the backend's RouteDTO response from calculateOptimalRoute (and getRouteById)
 export interface BackendRouteResponse {
   id: number;
   name: string;
@@ -34,7 +33,7 @@ export interface BackendRouteResponse {
   routeStartDate: string;
   routeEndDate: string;
   status: string;
-  assignedTransport?: { // This matches your TransportDTO structure
+  assignedTransport?: {
     id: number;
     name: string;
     type: string;
@@ -43,17 +42,21 @@ export interface BackendRouteResponse {
     status: string;
     carbonEmissionsGkm: number;
   };
-  sequence?: (any)[]; // Can be TripDTO or StopDTO, using 'any' for flexibility here
+  sequence?: BackendRouteItem[];
 }
-
 
 class ParcelService {
   // Get all parcels
   async getAllParcels(): Promise<Parcel[]> {
     try {
-      console.log('ParcelService: Attempting to fetch parcels from /api/entities');
+      console.log(
+        'ParcelService: Attempting to fetch parcels from /api/entities'
+      );
       const parcelsData = await apiService.get<Parcel[]>('/entities');
-      console.log('ParcelService: Raw API response received (now directly data):', parcelsData);
+      console.log(
+        'ParcelService: Raw API response received (now directly data):',
+        parcelsData
+      );
       return parcelsData;
     } catch (error) {
       console.error('ParcelService: Failed to fetch parcels:', error);
@@ -62,12 +65,24 @@ class ParcelService {
   }
 
   // Get parcel by ID
-  async getParcelById(id: number): Promise<Parcel> { // Changed id to number
+  async getParcelById(id: number): Promise<Parcel> {
     try {
       const parcel = await apiService.get<Parcel>(`/entities/${id}`);
       return parcel;
     } catch (error) {
       console.error(`Failed to fetch parcel ${id}:`, error);
+      throw error;
+    }
+  }
+
+  // 💡 NEW METHOD: Fetches a stored route by its ID (maps to GET /api/routes/{id})
+  async getRouteById(routeId: number): Promise<BackendRouteResponse> {
+    try {
+      // Uses the RouteController endpoint /api/routes/{id}
+      const route = await apiService.get<BackendRouteResponse>(`/routes/${routeId}`);
+      return route;
+    } catch (error) {
+      console.error(`Failed to fetch route ${routeId}:`, error);
       throw error;
     }
   }
@@ -83,21 +98,16 @@ class ParcelService {
     }
   }
 
-  // Update parcel status (now sends full Parcel object)
-  async updateParcel(
-    id: number, // Changed id to number
-    updatedFields: Partial<Parcel> // Accepts partial Parcel data
-  ): Promise<Parcel> {
+  // Update parcel status
+  async updateParcelStatus( id: number, status: ParcelStatus): Promise<Parcel> {
     try {
-      // First, get the existing parcel data
-      const existingParcel = await this.getParcelById(id);
+      const response = await apiService.post<Parcel>(`/entities/update-status`, 
+      {
+        entityId: id,
+        entityStatus: status
+      });
 
-      // Merge the updated fields into the existing parcel data
-      const parcelToUpdate = { ...existingParcel, ...updatedFields };
-
-      // Send the full, merged parcel object to the backend PUT endpoint
-      const response = await apiService.put<Parcel>(`/entities/${id}`, parcelToUpdate);
-      return response; // apiService.put now returns the data directly
+      return response; 
     } catch (error) {
       console.error(`Failed to update parcel ${id}:`, error);
       throw error;
@@ -108,7 +118,7 @@ class ParcelService {
   async searchParcels(filters: ParcelSearchFilters): Promise<Parcel[]> {
     try {
       const queryParams = new URLSearchParams();
-      
+
       Object.entries(filters).forEach(([key, value]) => {
         if (value) {
           queryParams.append(key, value as string);
@@ -127,8 +137,6 @@ class ParcelService {
   // Get running processes (parcels in 'active' status)
   async getRunningProcesses(): Promise<Parcel[]> {
     try {
-      // Assuming backend has an endpoint to get active entities
-      // The current backend has /api/entities/getactive
       const runningProcesses = await apiService.get<Parcel[]>('/entities/getactive');
       return runningProcesses;
     } catch (error) {
@@ -140,10 +148,21 @@ class ParcelService {
   // Calculate optimal route for a given entity ID
   async calculateOptimalRouteForEntity(entityId: number): Promise<BackendRouteResponse> {
     try {
-      // The backend endpoint is /api/entities/get-route and expects { "entityId": number }
-      const calculatedRoute = await apiService.post<BackendRouteResponse>('/entities/get-route', {
-        entityId: entityId
+      // 1. Calculate the route (maps to POST /api/entities/get-route)
+      const calculatedRoute = await apiService.post<BackendRouteResponse>('/entities/get-route',
+        {
+          entityId: entityId,
+        }
+      );
+      
+      // 2. Assign the route ID to the entity (UA) in the database (maps to POST /api/entities/add-route-id)
+      console.log('Updating route id with id ', calculatedRoute.id);
+      await apiService.post<Parcel>(`/entities/add-route-id`, 
+      {
+        entityId: entityId,
+        routeId: calculatedRoute.id
       });
+
       return calculatedRoute;
     } catch (error) {
       console.error('Failed to calculate route:', error);

@@ -1,5 +1,5 @@
 import { Activity, Map, Package, Plus, Truck } from 'lucide-react'; // Import RefreshCw icon
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import AddParcelForm from './components/AddParcelForm/AddParcelForm';
 import PortugalMap from './components/Map/PortugalMap';
 import ParcelList from './components/ParcelList/ParcelList';
@@ -15,6 +15,10 @@ function App() {
   const [showAddForm, setShowAddForm] = useState(false);
   const { parcels, routes, addParcel, updateParcelStatus, calculateAndSetRoute, refreshData } = useParcelData();
 
+  useEffect(() => {
+    refreshData();
+  }, [refreshData]); // Added refreshData to dependency array for safety, although it's stable
+
   const handleParcelSelect = (parcelId: number) => {
     setSelectedParcelId(parcelId);
   };
@@ -27,7 +31,6 @@ function App() {
       await calculateAndSetRoute(parcelId);
     } catch (error) {
       console.error('Failed to calculate route for map view:', error);
-      // Optionally show an error message to the user
     }
   };
 
@@ -53,9 +56,6 @@ function App() {
     } catch (error) {
       // Step 3: If route calculation or status update fails, catch the error
       console.error(`Failed to start processing for parcel ID: ${parcelId}:`, error);
-      // IMPORTANT: Do NOT update status if route calculation failed.
-      // Optionally, revert status if it was changed before route calculation (less likely with new order).
-      // You should also provide user feedback here (e.g., a toast notification).
       alert(`Erro ao iniciar processamento para a encomenda ${parcelId}. Verifique o console para mais detalhes.`);
     }
   };

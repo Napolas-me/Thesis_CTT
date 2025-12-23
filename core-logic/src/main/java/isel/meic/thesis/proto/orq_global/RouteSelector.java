@@ -2,11 +2,14 @@ package isel.meic.thesis.proto.orq_global;
 
 import isel.meic.thesis.proto.dataTypes.Route;
 
+import java.time.Instant;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
 
 public class RouteSelector {
+
+    protected boolean checkTime = false;
 
     public List<Route> selectRoutes(List<Route> allRoutes, UserParam userParam) { // Renamed entity to userParam for clarity
         List<Route> filteredRoutes = new LinkedList<>();
@@ -63,10 +66,26 @@ public class RouteSelector {
             }
             System.out.println("Deadline matched for route id = " + route.getId());
 
+            if(checkTime){
+                if(route.getStatus().equals("in_progress")){
+                    System.out.println("Route already departed. Not adding to filtered routes!");
+                    continue;
+                }
+
+                Date departureTime = route.getDepartureDate();
+                Date currentTime = Date.from(Instant.now());
+                System.out.println("curr time -> " + currentTime);
+                System.out.println("dep time -> " + departureTime);
+                if (!currentTime.before(departureTime)){
+                    System.out.println("Processing time if after departure time. Package must be rescheduled to another time/day. Not adding route to filtered routes.");
+                    continue;
+                }
+            }
+
             // If all conditions are met, add the route to the filtered list
             filteredRoutes.add(route);
             System.out.println("Route id = " + route.getId() + " added to filtered routes.");
-            System.out.println("Route sequence size: " + route.getConnections().size());
+            //System.out.println("Route sequence size: " + route.getConnections().size());
         }
         return filteredRoutes;
     }

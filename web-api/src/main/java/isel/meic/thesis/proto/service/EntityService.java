@@ -3,21 +3,20 @@ package isel.meic.thesis.proto.service;
 import isel.meic.thesis.proto.dao.EntityDAO;
 import isel.meic.thesis.proto.dataTypes.Entity;
 import isel.meic.thesis.proto.dataTypes.Route; // Importar a classe Route do seu core-logic
-//import isel.meic.thesis.proto.dataTypes.UserParam; // Importar a classe UserParam (anteriormente Entity)
+import isel.meic.thesis.proto.dataTypes.Stop;
+import isel.meic.thesis.proto.dataTypes.Trip;
 import isel.meic.thesis.proto.dataTypes.enums.Type; // Importar o enum Type
 import isel.meic.thesis.proto.dto.EntityDTO;
 import isel.meic.thesis.proto.dto.RouteDTO; // Para retornar a rota selecionada como DTO
+import isel.meic.thesis.proto.dto.StopDTO;
+import isel.meic.thesis.proto.dto.TripDTO;
 import isel.meic.thesis.proto.orq_global.Orquestrador; // Importar o Orquestrador
 
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.Date;
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.Objects;
-import java.util.stream.Collectors;
+import java.util.*;
 
 @Service
 public class EntityService {
@@ -61,21 +60,30 @@ public class EntityService {
         return entityDAO.findAll();
     }
 
+    public EntityDTO updateEntityStatus(int id, String status){
+        EntityDTO e = getEntityById(id);
+        e.setStatus(status);
+        int rows = entityDAO.updateEntity(e);
+        return getEntityById(id);//bs code need to streamline this
+    }
+
     /**
-     * Atualiza uma entidade UA existente.
-     * @param id O ID da entidade a ser atualizada.
+     * Atualiza uma entidade UA existente com um id de uma rota.
+     * @param routeId O ID de uma rota a ser adicionado a uma entidade.
      * @param entity O EntityDTO com os dados atualizados.
      * @return O EntityDTO atualizado.
      * @throws NoSuchElementException se a entidade não for encontrada.
      */
-    public EntityDTO updateEntity(Integer id, EntityDTO entity) {
-        if (entityDAO.findById(id) == null) {
-            throw new NoSuchElementException("Entidade com ID " + id + " não encontrada para atualização.");
+    public EntityDTO updateEntityRoute(Integer routeId, EntityDTO entity) {
+        if (entity == null) {
+            throw new NoSuchElementException("Entidade Vazia");
         }
-        entity.setId(id);
+        System.out.println("Update routeId is " + routeId );
+        entity.setRouteId(routeId);
         int rowsAffected = entityDAO.updateEntity(entity);
+        System.out.println(rowsAffected);
         if (rowsAffected == 0) {
-            throw new RuntimeException("Falha ao atualizar a entidade com ID " + id);
+            throw new RuntimeException("Falha ao atualizar a entidade com ID " + entity.getRouteId());
         }
         return entity;
     }
@@ -99,6 +107,14 @@ public class EntityService {
      */
     public List<EntityDTO> getActiveEntities() {
         return entityDAO.findByStatus("active");
+    }
+
+    public void resetActive(){
+        getActiveEntities()
+                .forEach(a ->{
+                    a.setStatus("created");
+                    updateEntityRoute(0, a);
+                });
     }
 
     /**
@@ -138,7 +154,7 @@ public class EntityService {
         RouteDTO dto = new RouteDTO();
         dto.setId(route.getId());
         dto.setName(route.getName());
-        dto.setRouteStartName(route.toString());
+        dto.setRouteStartName(route.getOrigin());
         dto.setRouteEndName(route.getDestination());
         dto.setRouteStartDate(convertToLocalDateTime(route.getDepartureDate()));
         dto.setRouteEndDate(convertToLocalDateTime(route.getArrivalDate()));
@@ -149,9 +165,51 @@ public class EntityService {
         }
 
         if (route.getConnections() != null && !route.getConnections().isEmpty()) {
-            dto.setSequence(route.getConnections());
+            dto.setSequence(mapConnectiontoAPI(route.getConnections()));
         }
         return dto;
+    }
+
+    private List<Object> mapConnectiontoAPI(List<Object> con){
+        List<Object> mappedConnections = new ArrayList<>();
+
+        con.forEach(c ->{
+            if(c.getClass().getName().contains("Trip")){
+                TripDTO t = tripToTripDTO((Trip) c);
+                mappedConnections.add(t);
+            }
+            else if(c.getClass().getName().contains("Stop")){
+                StopDTO s = stopToStopDTO((Stop) c);
+                mappedConnections.add(s);
+            }
+        });
+        //System.out.println(mappedConnections);
+        return mappedConnections;
+    }
+
+    private TripDTO tripToTripDTO(Trip t){
+        TripDTO returnTrip = new TripDTO();
+
+        returnTrip.setId(t.getID());
+        returnTrip.setOrigin(t.getOrigem());
+        returnTrip.setDestination(t.getDestino());
+        returnTrip.setDepartureDate(convertToLocalDateTime(t.getTempoPartida()));
+        returnTrip.setDestinationDate(convertToLocalDateTime(t.getTempoChegada()));
+        returnTrip.setStatus(t.getStatus());
+        return returnTrip;
+    }
+
+    private StopDTO stopToStopDTO(Stop s){
+        StopDTO returnStop = new StopDTO();
+
+        returnStop.setId(s.getID());
+        returnStop.setStopName(s.getLocal());
+        returnStop.setGateName(s.getGate());
+        returnStop.setArrivalDate(convertToLocalDateTime(s.getTempoChegada()));
+        returnStop.setDepartureDate(convertToLocalDateTime(s.getTempoPartida()));
+        returnStop.setStatus(s.getStatus());
+
+        return returnStop;
     }
 
     // Helper method to map Transport (core-logic) to TransportDTO (API)

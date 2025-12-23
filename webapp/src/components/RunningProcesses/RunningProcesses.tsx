@@ -1,23 +1,19 @@
 import React from 'react';
-import { Parcel, Route } from '../../types/parcel'; // Import Parcel and Route types
+import { Parcel, Route, ParcelStatus } from '../../types/parcel'; // Import Parcel and Route types
 
 interface RunningProcessesProps {
   parcels: Parcel[];
-  selectedParcelId?: number; // Changed to number to match Parcel.id
-  routes: Route[]; // Routes prop added
-  onSelectParcel: (parcelId: number) => void; // Changed to number
+  selectedParcelId?: number; 
+  routes: Route[]; 
+  onSelectParcel: (parcelId: number) => void; 
 }
 
-const RunningProcesses: React.FC<RunningProcessesProps> = ({
-  parcels,
-  selectedParcelId,
-  routes, // Destructure routes
-  onSelectParcel,
-}) => {
+const RunningProcesses: React.FC<RunningProcessesProps> = ({parcels, selectedParcelId, routes, onSelectParcel}) => {
+
+  
   // Filter parcels that are 'active' to be considered "running processes"
-  const runningParcels = parcels.filter(
-    (parcel) => parcel.status === 'active'
-  );
+  const runningParcels = parcels.filter((parcel) => parcel.status === 'active');
+  //console.log('Debug-RunningProcesses:', runningParcels);
 
   return (
     <div className="bg-white shadow-lg rounded-lg p-6">
@@ -29,8 +25,9 @@ const RunningProcesses: React.FC<RunningProcessesProps> = ({
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {runningParcels.map((parcel) => {
-            // Find the associated route for the current parcel
             const associatedRoute = routes.find(route => route.parcelId === parcel.id);
+            console.log('rotas', routes)
+            console.log('rotas associadas', associatedRoute);
             return (
               <div
                 key={parcel.id}

@@ -10,7 +10,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-// REMOVIDO: @Repository
 public class RouteDAO {
     private final Connection conn;
 

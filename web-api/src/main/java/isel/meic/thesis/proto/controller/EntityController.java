@@ -7,13 +7,13 @@ import isel.meic.thesis.proto.service.EntityService;
 import lombok.Data; // Para a classe aninhada de Request
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.Objects;
+
 
 @RestController
 @RequestMapping("/api/entities")
@@ -26,9 +26,9 @@ public class EntityController {
 
     public EntityController(EntityService entityService) {
         this.entityService = entityService;
-    }
 
-    // --- Endpoints CRUD existentes (mantidos iguais) ---
+        //entityService.resetAllDeadlinesToLastSlot(); // autoupdate deadline entities to last possible time slot
+    }
 
     @PostMapping
     public ResponseEntity<EntityDTO> createEntity(@RequestBody EntityDTO entityDTO) {
@@ -51,10 +51,31 @@ public class EntityController {
         }
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<EntityDTO> updateEntity(@PathVariable Integer id, @RequestBody EntityDTO entityDTO) {
+    @Data
+    static class EntityStatusUpdate {
+        private Integer entityId;
+        private String entityStatus;
+    }
+
+    @PostMapping("/update-status")
+    public  ResponseEntity<EntityDTO> updateStatus(@RequestBody EntityStatusUpdate body){
+        EntityDTO e = entityService.updateEntityStatus(body.getEntityId(), body.getEntityStatus());
+        if(e != null) return ResponseEntity.ok(e);
+        return ResponseEntity.internalServerError().build();
+    }
+
+    @Data // Lombok annotation
+    static class EntityRouteIdRequest {
+        private Integer entityId;
+        private Integer routeId;
+    }
+
+    @PostMapping("/add-route-id")
+    public ResponseEntity<EntityDTO> updateEntityRoute( @RequestBody EntityRouteIdRequest request) {
         try {
-            EntityDTO updatedEntity = entityService.updateEntity(id, entityDTO);
+            System.out.println("EntityCOntroller got ID = " + request.getRouteId());
+            EntityDTO e = entityService.getEntityById(request.getEntityId());
+            EntityDTO updatedEntity = entityService.updateEntityRoute(request.getRouteId(), e);
             return ResponseEntity.ok(updatedEntity);
         } catch (NoSuchElementException e) {
             return ResponseEntity.notFound().build();
@@ -72,8 +93,6 @@ public class EntityController {
             return ResponseEntity.notFound().build();
         }
     }
-
-    // --- Novos Endpoints ---
 
     /**
      * Endpoint para obter todas as entidades UA com status 'active'.
@@ -94,10 +113,11 @@ public class EntityController {
         private Integer entityId;
     }
 
+
+
     /**
      * Endpoint para calcular a rota ótima para uma entidade UA específica.
      * Mapeia para requisições POST em /api/entities/get-route.
-     * Corresponde a 'calculateRoute()' no seu frontend.
      * @param request Um objeto JSON contendo o 'entityId'.
      * @return ResponseEntity com o RouteDTO da rota ótima e status 200 OK,
      * ou 404 Not Found se a entidade ou rota não for encontrada,
@@ -106,9 +126,9 @@ public class EntityController {
     @PostMapping("/get-route")
     public ResponseEntity<RouteDTO> calculateOptimalRoute(@RequestBody EntityIdRequest request) {
         try {
-            if (request.getEntityId() == null) {
+            if (request.getEntityId() == null)
                 return ResponseEntity.badRequest().build(); // Retorna 400 Bad Request se o ID não for fornecido
-            }
+
             // Chamar o serviço para calcular a rota para a entidade
             RouteDTO optimalRoute = entityService.calculateOptimalRouteForEntity(request.getEntityId());
 
@@ -116,7 +136,7 @@ public class EntityController {
                 return ResponseEntity.ok(optimalRoute); // Retorna 200 OK com a rota
             } else {
                 // Se o Orquestrador retornar null, significa que nenhuma rota foi encontrada para os critérios da entidade
-                return ResponseEntity.notFound().build(); // Retorna 404 Not Found
+                return ResponseEntity.of(ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, "No route available")).build(); // Retorna 404 Not Found
             }
         } catch (NoSuchElementException e) {
             // Captura a exceção se a entidade não for encontrada pelo ID
@@ -126,6 +146,13 @@ public class EntityController {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build(); // Retorna 500 Internal Server Error
         }
+    }
+
+    //----------------------------------DEBUG----------------------------------------------//
+
+    @GetMapping("/debug/reset-active")
+    public void resetActive(){
+        entityService.resetActive();
     }
 
     /**

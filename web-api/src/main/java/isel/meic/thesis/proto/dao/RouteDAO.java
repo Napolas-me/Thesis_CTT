@@ -9,9 +9,10 @@ import org.springframework.stereotype.Repository;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Objects;
 
 @Repository // Marks this class as a Spring Data Repository
 public class RouteDAO {
@@ -101,6 +102,61 @@ public class RouteDAO {
             return transport;
         });
     }
+
+    private void updateRouteDates(RouteDTO route) {
+        String sql = "UPDATE ROUTE SET route_start_date = ?, route_end_date = ? WHERE id = ?";
+
+        int updatedRows = jdbcTemplate.update(sql,
+                Timestamp.valueOf(route.getRouteStartDate()),
+                Timestamp.valueOf(route.getRouteEndDate()),
+                route.getId()
+        );
+
+        if (updatedRows > 0) {
+            System.out.println("UPDATED DB: Route ID " + route.getId() + " to Start: " + route.getRouteStartDate());
+        } else {
+            System.out.println("Warning: Could not update Route ID " + route.getId());
+        }
+    }
+
+    public void dailyUpdateRoute() {
+        List<RouteDTO> allRoutes = findAllRoutes();
+        LocalDate today = LocalDate.now();
+
+        System.out.println("Processing update for date: " + today);
+        System.out.println("------------------------------------------");
+
+        for (RouteDTO route : allRoutes){
+
+            // --- 1. Update the Start Date/Time ---
+            LocalDateTime existingStartTime = route.getRouteStartDate();
+
+            // Key step: Combine today's date with the existing time
+            LocalDateTime newStartDateTime = today.atTime(existingStartTime.toLocalTime());
+
+            route.setRouteStartDate(newStartDateTime);
+
+
+            // --- 2. Update the End Date/Time ---
+            LocalDateTime existingEndTime = route.getRouteEndDate();
+            LocalDateTime newEndDateTime = today.atTime(existingEndTime.toLocalTime());
+
+            // Check for overnight routes (where end time is earlier than start time)
+            if (newEndDateTime.toLocalTime().isBefore(newStartDateTime.toLocalTime())) {
+                // If it's an overnight route, the end date must be tomorrow
+                newEndDateTime = newEndDateTime.plusDays(1);
+            }
+
+            route.setRouteEndDate(newEndDateTime);
+
+            // --- 3. Save the changes ---
+            updateRouteDates(route);
+        }
+
+        System.out.println("------------------------------------------");
+        System.out.println("Daily route date update finished.");
+    }
+
 
 
     // Helper method to map ResultSet to RouteDTO

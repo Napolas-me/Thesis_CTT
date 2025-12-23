@@ -16,6 +16,6 @@ public class DefaultMetricSelectionStrategy implements MetricSelectionStrategy {
         else if (entity.getMaxTransfers() != -1)
             return new Transfers();
         else
-            return new Fastest(); // Caso padrão
+            return new Cost(); // Caso padrão, sempre o mais economico
     }
 }

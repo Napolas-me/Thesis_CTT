@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
-import { BackendRouteResponse, CreateParcelRequest, parcelService } from '../services/parcelService';
-import { CorrespondenceType, Parcel, ParcelStatus, Route } from '../types/parcel'; // Import ParcelStatus
-import { APP_CONFIG } from '../utils/constants';
+import {useCallback, useEffect, useState} from 'react';
+import {BackendRouteResponse, CreateParcelRequest, parcelService} from '../services/parcelService';
+import {CorrespondenceType, Parcel, ParcelStatus, Route} from '../types/parcel';
+import {APP_CONFIG} from '../utils/constants';
+
+import { BackendRouteItem } from '../types/backendRouteItem';
 
 export const useParcelData = () => {
   const [parcels, setParcels] = useState<Parcel[]>([]);
@@ -9,51 +11,89 @@ export const useParcelData = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Helper to map BackendRouteResponse to frontend Route
-  const mapBackendRouteToFrontendRoute = (
-    backendRoute: BackendRouteResponse,
-    parcelId: number // Need to pass parcelId to link it
-  ): Route => {
-    // Assuming backend sequence contains strings for path visualization
-    // If backend sequence contains Trip/Stop objects, you'd need to extract names.
-    const path: string[] = backendRoute.sequence
-      ? backendRoute.sequence.map(item => {
-          // This is a simplification. You might need more robust type checking
-          // if sequence items are complex objects (TripDTO/StopDTO).
-          // For now, assuming they have a 'name' or 'stopName' property.
-          if (typeof item === 'object' && item !== null) {
-            if (item.stopName) return item.stopName; // For StopDTO
-            if (item.origin && item.destination) return `${item.origin} -> ${item.destination}`; // For TripDTO
-          }
-          return String(item); // Fallback
-        })
-      : [];
+  const mapBackendRouteToFrontendRoute = useCallback(( backendRouteResponse: BackendRouteResponse, parcelId: number): Route => {
+    console.log('useParcelData: mapping back to front');
+    const backendSequence: BackendRouteItem[] = backendRouteResponse.sequence || [];
+
+    const path: string[] = [];
+
+    backendSequence.forEach((r) => {
+      if (r.type === 'stop') path.push((r as any).stopName); 
+    });
+    console.log('Path for Route id ', backendRouteResponse.id, 'is ', path);
 
     return {
       parcelId: parcelId,
       path: path,
-      currentPosition: 0, // Default for new route
-      status: 'active', // New routes are active
+      sequence: backendSequence,
+      currentPosition: 0, // Reset to 0 since progress is not implemented
+      status: backendRouteResponse.status,
     };
-  };
+  }, []);
+
+  // 💡 FIXED FILTERING LOGIC: Ensures active parcels with a valid routeId are targeted.
+  const loadRoutesForActiveParcels = useCallback(async (currentParcels: Parcel[]) => {
+    console.log('useParcelData: Starting route hydration...');
+    
+    // Filter for active parcels that have a route ID assigned (p.routeId > 0)
+    const activeParcelsWithRoute = currentParcels.filter(
+        (p: Parcel) => p.status === 'active' && p.routeId > 0
+    );
+
+    if (activeParcelsWithRoute.length === 0) {
+      setRoutes([]);
+      console.log('useParcelData: No active parcels with assigned route found. Routes state cleared.');
+      return;
+    }
+
+    try {
+      // Use Promise.all to fetch all routes concurrently
+      const routePromises = activeParcelsWithRoute.map(async (parcel: Parcel) => {
+        try {
+            const routeId = parcel.routeId;
+            
+            // This condition is technically redundant if the filter works, but kept for type safety
+            if (!routeId) return null; 
+
+            // 1. Fetch the existing route object using the stored ID (maps to GET /api/routes/{id})
+            const routeResponse = await parcelService.getRouteById(routeId);
+            
+            // 2. Map the backend response to the frontend Route object
+            // currentPosition is set to 0 inside mapBackendRouteToFrontendRoute
+            return mapBackendRouteToFrontendRoute(routeResponse, parcel.id);
+            
+        } catch (e) {
+            console.warn(`Could not fetch route ID ${parcel.routeId} for parcel ${parcel.id}. (Backend 404/500)`);
+            return null; // Return null on failure
+        }
+      });
+
+      const fetchedRoutes = await Promise.all(routePromises);
+      
+      // Filter out any nulls (failed fetches)
+      const validRoutes = fetchedRoutes.filter(r => r !== null) as Route[];
+      
+      setRoutes(validRoutes);
+      console.log(`useParcelData: Successfully loaded ${validRoutes.length} active routes.`);
+
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load routes during hydration');
+      console.error('useParcelData: Fatal Error in loadRoutesForActiveParcels:', err);
+    }
+  }, [mapBackendRouteToFrontendRoute]);
 
   const loadParcels = useCallback(async () => {
-    console.log('useParcelData: Starting loadParcels...');
+    console.log('useParcelData: Executing loadParcels...');
     try {
       setLoading(true);
       setError(null);
 
+      // 1. Fetch Parcels (including their routeId)
       const parcelsData = await parcelService.getAllParcels();
-      console.log('useParcelData: Received parcelsData from service:', parcelsData);
       setParcels(parcelsData);
-      console.log('useParcelData: parcels state updated to:', parcelsData);
-
-      // Routes are calculated on demand (e.g., when "Ver no Mapa" is clicked)
-      // So, we don't clear them here, but rather add/update them when calculated.
-      // For initial load, we might try to load routes for 'active' parcels if they exist in backend.
-      // For now, we'll keep routes managed when calculateAndSetRoute is called.
-      // setRoutes([]); // Removed this line to persist routes across refreshes if they were already calculated
-      console.log('useParcelData: Finished loadParcels, loading set to false.');
+      
+      // 2. Hydrate Routes: Fetch associated RouteDTOs for active parcels
+      await loadRoutesForActiveParcels(parcelsData);
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load parcels');
@@ -61,14 +101,14 @@ export const useParcelData = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadRoutesForActiveParcels]);
 
   // Load initial data and set up refresh interval
   useEffect(() => {
-    console.log('useParcelData: useEffect triggered.');
-    loadParcels();
+    console.log( `useParcelData: Set up refresh interval for ${APP_CONFIG.REFRESH_INTERVAL / 1000} seconds.`);
+
     const interval = setInterval(loadParcels, APP_CONFIG.REFRESH_INTERVAL);
-    console.log(`useParcelData: Set up refresh interval for ${APP_CONFIG.REFRESH_INTERVAL / 1000} seconds.`);
+
     return () => {
       clearInterval(interval); // Cleanup on unmount
       console.log('useParcelData: Cleanup - interval cleared.');
@@ -82,11 +122,11 @@ export const useParcelData = () => {
     origin: string;
     destination: string;
     maxTransfers: number;
-    deadline: string; // ISO string
+    deadline: string;
   }) => {
     try {
       setError(null);
-      
+
       const createRequest: CreateParcelRequest = {
         name: parcelData.name,
         description: parcelData.description,
@@ -95,11 +135,11 @@ export const useParcelData = () => {
         destination: parcelData.destination,
         maxTransfers: parcelData.maxTransfers,
         deadline: parcelData.deadline,
-        status: 'created', // Always created initially
+        status: 'created',
       };
-      
+
       const newParcel = await parcelService.createParcel(createRequest);
-      setParcels(prev => [...prev, newParcel]);
+      setParcels((prev) => [...prev, newParcel]);
       console.log('useParcelData: Added new parcel:', newParcel);
       return newParcel;
     } catch (err) {
@@ -110,43 +150,32 @@ export const useParcelData = () => {
   };
 
   const updateParcelStatus = async (
-    parcelId: number, // Changed to number
-    newStatus: ParcelStatus, // Use ParcelStatus type
-    progress?: number, // Optional, for progress updates
-    currentLocation?: string // Optional, for location updates
+    parcelId: number,
+    newStatus: ParcelStatus,
+    progress?: number,
+    currentLocation?: string
   ) => {
     try {
       setError(null);
-      
-      const updatedParcel = await parcelService.updateParcel(parcelId, {
-        status: newStatus,
-        // Add other fields if they are part of the update and need to be sent
-        // For example, if progress/currentLocation are part of Parcel and need to be updated in DB
-        // For now, assuming status is the primary update.
-      });
-      
-      setParcels(prev => 
-        prev.map(parcel => 
-          parcel.id === parcelId ? updatedParcel : parcel
-        )
+
+      const updatedParcel = await parcelService.updateParcelStatus(parcelId, newStatus);
+
+      setParcels((prev) =>
+        prev.map((parcel) => (parcel.id === parcelId ? updatedParcel : parcel))
       );
-      
-      // Update route status/progress if a route exists for this parcel
-      setRoutes(prev =>
-        prev.map(route =>
+
+      setRoutes((prev) =>
+        prev.map((route) =>
           route.parcelId === parcelId
             ? {
                 ...route,
-                // Assuming progress is only relevant if route.path exists
-                currentPosition: typeof progress === 'number' && route.path.length > 0
-                  ? Math.floor((progress / 100) * (route.path.length - 1))
-                  : route.currentPosition, // Keep current position if no progress
-                status: newStatus === 'completed' ? 'completed' : 'active' // Map parcel status to route status
+                // Removed progress calculation logic as requested
+                status: newStatus === 'completed' ? 'completed' : 'active', 
               }
             : route
         )
       );
-      
+
       return updatedParcel;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update parcel');
@@ -160,16 +189,16 @@ export const useParcelData = () => {
     try {
       setError(null);
 
-      let parcelToRoute = parcels.find(p => p.id === parcelId);
+      let parcelToRoute = parcels.find((p) => p.id === parcelId);
       if (!parcelToRoute) {
         console.log(`useParcelData: Parcel ${parcelId} not found in current state, fetching from backend.`);
+
         const fetchedParcel = await parcelService.getParcelById(parcelId);
         if (!fetchedParcel) {
           throw new Error(`Parcel with ID ${parcelId} not found.`);
         }
-        // Add fetched parcel to state if it's not already there
-        setParcels(prev => {
-          if (!prev.some(p => p.id === fetchedParcel.id)) {
+        setParcels((prev) => {
+          if (!prev.some((p) => p.id === fetchedParcel.id)) {
             return [...prev, fetchedParcel];
           }
           return prev;
@@ -178,31 +207,33 @@ export const useParcelData = () => {
       }
 
       console.log('useParcelData: Calling parcelService.calculateOptimalRouteForEntity with entityId:', parcelToRoute.id);
+
       const calculatedRouteResponse = await parcelService.calculateOptimalRouteForEntity(parcelToRoute.id);
-      console.log('useParcelData: Received calculated route response:', calculatedRouteResponse);
-
+      
       const newFrontendRoute = mapBackendRouteToFrontendRoute(calculatedRouteResponse, parcelToRoute.id);
-      console.log('useParcelData: Mapped to frontend route:', newFrontendRoute);
 
-      setRoutes(prev => {
-        const filteredRoutes = prev.filter(r => r.parcelId !== parcelToRoute!.id); // Remove old route for this parcel
-        return [...filteredRoutes, newFrontendRoute]; // Add the new one
+      setRoutes((prev) => {
+        const filteredRoutes = prev.filter(
+          (r) => r.parcelId !== parcelToRoute!.id
+        );
+        return [...filteredRoutes, newFrontendRoute];
       });
-      console.log('useParcelData: Routes state updated.');
       return newFrontendRoute;
     } catch (err) {
-      setError(err instanceof Error ? err.message : `Failed to calculate route for parcel ${parcelId}`);
+      setError(
+        err instanceof Error
+          ? err.message
+          : `Failed to calculate route for parcel ${parcelId}`
+      );
       console.error(`useParcelData: Error calculating route for parcel ${parcelId}:`, err);
       throw err;
     }
   };
 
-  const refreshData = () => {
+  const refreshData = useCallback(() => {
     console.log('useParcelData: refreshData called. Reloading parcels...');
     loadParcels();
-    // Decide if routes should be cleared on refresh or re-calculated if active
-    // For now, we'll let `calculateAndSetRoute` manage route state.
-  };
+  }, [loadParcels]);
 
   return {
     parcels,

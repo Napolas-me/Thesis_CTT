@@ -41,6 +41,7 @@ public class RouteController {
     public ResponseEntity<List<Object>> getRouteSequence(@PathVariable Integer id) {
         try {
             List<Object> sequence = routeService.getRouteSequence(id);
+            System.out.println(sequence);
             return ResponseEntity.ok(sequence);
         } catch (NoSuchElementException e) {
             return ResponseEntity.notFound().build();

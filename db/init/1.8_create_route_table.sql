@@ -31,7 +31,7 @@ CREATE TABLE ROUTE_DAILY (
     route_start_date DATETIME NOT NULL,
     route_end_date DATETIME NOT NULL,
     transport_id INT NOT NULL,
-    status ENUM('scheduled','pending', 'in_progress', 'completed', 'canceled'),
+    status ENUM('scheduled', 'pending', 'in_progress', 'completed', 'canceled'),
     FOREIGN KEY (transport_id) REFERENCES TRANSPORT(id)
 );
 

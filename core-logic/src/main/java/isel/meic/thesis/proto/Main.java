@@ -187,43 +187,34 @@ public class Main {
         Entity entity1 = new Entity("Porto", "Faro", Type.EXPRESSO, 0, createDate(18, 0));
         Entity entity2 = new Entity("Porto", "Faro", Type.VERDE, 0, createDate(18, 0));
         Entity entity3 = new Entity("Porto", "Faro", Type.AZUL, 0, createDate(18, 0));
-        Entity entity4 = new Entity("Porto", "Faro", Type.NORMAL, 0, createDate(18, 0));
+        //Entity entity4 = new Entity("Porto", "Faro", Type.NORMAL, 0, createDate(18, 0));
 
-        Entity entity5 = new Entity("Porto", "Faro", Type.NORMAL, 0, createDate(18, 0)); // Max 0 transfers (should pick R1)
-        Entity entity6 = new Entity("Porto", "Faro", Type.NORMAL, 1, createDate(18, 0)); // Max 1 transfer (should pick R2/R3 based on time/cost)
-        Entity entity7 = new Entity("Lisboa", "Porto", Type.NORMAL, 2, createDate(18, 0)); // Max 2 transfers (should pick R9)
-        Entity entity8 = new Entity("Lisboa", "Porto", Type.NORMAL, 0, createDate(18, 0)); // Max 0 transfers (should pick R7)
+        //Entity entity5 = new Entity("Porto", "Faro", Type.NORMAL, 0, createDate(18, 0)); // Max 0 transfers (should pick R1)
+        //Entity entity6 = new Entity("Porto", "Faro", Type.NORMAL, 1, createDate(18, 0)); // Max 1 transfer (should pick R2/R3 based on time/cost)
+        //Entity entity7 = new Entity("Lisboa", "Porto", Type.NORMAL, 2, createDate(18, 0)); // Max 2 transfers (should pick R9)
+        //Entity entity8 = new Entity("Lisboa", "Porto", Type.NORMAL, 0, createDate(18, 0)); // Max 0 transfers (should pick R7)
 
         // Scenario 2: Testing VERDE (Cost/Emissions) for Porto -> Lisboa
         // Existing: R4, R5, R6 (all cars). New: R14 (motorcycle)
-        Entity entity9 = new Entity("Porto", "Lisboa", Type.VERDE, 0, createDate(18, 0)); // Should prefer R14 (motorcycle)
+        //Entity entity9 = new Entity("Porto", "Lisboa", Type.VERDE, 0, createDate(18, 0)); // Should prefer R14 (motorcycle)
 
         // Scenario 3: Testing AZUL (Fastest) for Lisboa -> Faro
         // Routes: R10, R11, R12
-        Entity entity10 = new Entity("Lisboa", "Faro", Type.AZUL, 0, createDate(18, 0)); // Should pick the fastest among R10, R11, R12
+        //Entity entity10 = new Entity("Lisboa", "Faro", Type.AZUL, 0, createDate(18, 0)); // Should pick the fastest among R10, R11, R12
 
         // Scenario 4: Testing EXPRESSO (Earliest) for Coimbra -> Faro
         // Route: R13
-        Entity entity11 = new Entity("Coimbra", "Faro", Type.EXPRESSO, 0, createDate(18, 0)); // Should pick R13
+        //Entity entity11 = new Entity("Coimbra", "Faro", Type.EXPRESSO, 0, createDate(18, 0)); // Should pick R13
 
         // Scenario 5: Testing with tight deadlines
-        Entity entity12 = new Entity("Porto", "Faro", Type.NORMAL, 0, createDate(10, 0)); // Deadline before any route ends (might return empty or specific error)
-        Entity entity13 = new Entity("Porto", "Faro", Type.NORMAL, 0, createDate(10, 45)); // Deadline for R1 (ends 10:30)
+        //Entity entity12 = new Entity("Porto", "Faro", Type.NORMAL, 0, createDate(10, 0)); // Deadline before any route ends (might return empty or specific error)
+        //Entity entity13 = new Entity("Porto", "Faro", Type.NORMAL, 0, createDate(10, 45)); // Deadline for R1 (ends 10:30)
 
 
         entities.put(1, entity1);
         entities.put(2, entity2);
         entities.put(3, entity3);
-        entities.put(4, entity4);
-        entities.put(5, entity5);
-        entities.put(6, entity6);
-        entities.put(7, entity7);
-        entities.put(8, entity8);
-        entities.put(9, entity9);
-        entities.put(10, entity10);
-        entities.put(11, entity11);
-        entities.put(12, entity12);
-        entities.put(13, entity13);
+
 
         Menu();
     }
